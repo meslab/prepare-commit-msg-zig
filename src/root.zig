@@ -60,14 +60,15 @@ test "updateCommitMessage updates the commit message with the branch name" {
     const commit_msg_file_path = test_dir_rel_path ++ "/COMMIT_MSG";
 
     const initial_msg = "Initial commit\n";
-    
+
     const len = try commit_msg_file.write(initial_msg);
     try testing.expect(len == initial_msg.len);
 
-    try updateCommitMessage(allocator, commit_msg_file_path, "feature-branch");
+    const feature_branch = "feature-branch";
+    try updateCommitMessage(allocator, commit_msg_file_path, feature_branch);
 
-    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, 1024);
+    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, 1024 * 1024);
     defer allocator.free(updated_msg);
 
-    try testing.expectEqualStrings("feature-branch: " ++ initial_msg, updated_msg);
+    try testing.expectEqualStrings(feature_branch ++ ": " ++ initial_msg, updated_msg);
 }
