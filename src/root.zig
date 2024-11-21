@@ -64,7 +64,7 @@ test "updateCommitMessage updates the commit message with the branch name" {
     defer commit_msg_file.close();
 
     const len = try commit_msg_file.write(initial_msg);
-    try testing.expect(len == initial_msg.len);
+    try testing.expectEqual(len, initial_msg.len);
 
     try updateCommitMessage(allocator, commit_msg_file_path, feature_branch);
 
