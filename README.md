@@ -1,1 +1,1 @@
-# prepare-commit-msg-zig
+# prepare-commit-msg
