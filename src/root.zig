@@ -42,32 +42,32 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
 
 test "updateCommitMessage updates the commit message with the branch name" {
     const allocator = testing.allocator;
-    const cwd = std.fs.cwd();
-    try std.fs.cwd().makeDir("test_update_commit_message");
-    var tmp_dir = try std.fs.cwd().openDir(
-        "test_update_commit_message",
+    const test_dir_rel_path = "test_update_commit_message";
+
+    try std.fs.cwd().makeDir(test_dir_rel_path);
+    var test_dir = try std.fs.cwd().openDir(
+        test_dir_rel_path,
         .{ .iterate = true },
     );
     defer {
-        tmp_dir.close();
-        cwd.deleteTree("test_update_commit_message") catch unreachable;
+        test_dir.close();
+        std.fs.cwd().deleteTree(test_dir_rel_path) catch unreachable;
     }
 
-    const commit_msg_file = try tmp_dir.createFile("COMMIT_MSG", .{});
+    const commit_msg_file = try test_dir.createFile("COMMIT_MSG", .{});
     defer commit_msg_file.close();
 
-    const len = try commit_msg_file.write("Initial commit\n");
-    try testing.expect(len > 0);
+    const commit_msg_file_path = test_dir_rel_path ++ "/COMMIT_MSG";
 
-    try tmp_dir.setAsCwd();
+    const initial_msg = "Initial commit\n";
+    
+    const len = try commit_msg_file.write(initial_msg);
+    try testing.expect(len == initial_msg.len);
 
-    try updateCommitMessage(allocator, "COMMIT_MSG", "feature-branch");
+    try updateCommitMessage(allocator, commit_msg_file_path, "feature-branch");
 
-    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, "COMMIT_MSG", 1024);
+    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, 1024);
     defer allocator.free(updated_msg);
 
-    try testing.expectEqualStrings("feature-branch: Initial commit\n", updated_msg);
-
-    try cwd.setAsCwd();
-    try cwd.deleteTree("test_update_commit_message");
+    try testing.expectEqualStrings("feature-branch: " ++ initial_msg, updated_msg);
 }
