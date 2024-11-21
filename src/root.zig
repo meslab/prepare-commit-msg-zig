@@ -24,3 +24,18 @@ pub fn getCurrentGitBranch(allocator: std.mem.Allocator) !?[]const u8 {
 
     return null;
 }
+
+/// Updates commit message file
+/// Caller is responsible for freeing the returned memory
+pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, branch_name: []const u8) !void {
+    const file_contents = try std.fs.cwd().readFileAlloc(allocator, file_path, 1024 * 1024);
+    defer allocator.free(file_contents);
+
+    const new_message = try std.fmt.allocPrint(allocator, "{s}: {s}", .{branch_name, file_contents});
+    defer allocator.free(new_message);
+
+    try std.fs.cwd().writeFile(.{
+        .sub_path = file_path,
+        .data = new_message,
+    });
+}
