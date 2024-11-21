@@ -9,5 +9,6 @@ clean:
 
 test:
 	@zig build test
+	@rm -rf ./test_update_commit_message
 
 .PHONY: install clean test uninstall
