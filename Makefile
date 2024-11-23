@@ -5,7 +5,6 @@ install:
 	mkdir -p ${CORE_GIT_HOOKSPATH}
 	git config set --global core.hookspath $(CORE_GIT_HOOKSPATH)
 	zig build --release=safe --prefix-exe-dir ${CORE_GIT_HOOKSPATH}/
-	strip ${CORE_GIT_HOOKSPATH}/prepare-commit-msg
 
 uninstall:
 	@rm -rf ${CORE_GIT_HOOKSPATH}/prepare-commit-msg
