@@ -1,5 +1,6 @@
 install:
-	@zig build --release=small --prefix-exe-dir ~/.git_hooks/
+	@zig build --release=safe --prefix-exe-dir ~/.git_hooks/
+	@strip ~/.git_hooks/prepare-commit-msg
 
 uninstall:
 	@rm -rf ~/.git_hooks/prepare-commit-msg
