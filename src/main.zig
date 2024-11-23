@@ -12,12 +12,6 @@ const BRANCH_NAMES = [_][]const u8{ "main", "master" };
 ///
 /// # Errors
 /// - Returns an error if the branch name cannot be fetched or the commit message cannot be updated.
-///
-/// # Usage
-/// ```sh
-/// make install
-/// ```
-/// puts it into `~/.git_hooks/` directory
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
