@@ -29,12 +29,7 @@ pub fn build(b: *std.Build) void {
     // running `zig build`).
     b.installArtifact(lib);
 
-    const exe = b.addExecutable(.{
-        .name = "prepare-commit-msg",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
+    const exe = b.addExecutable(.{ .name = "prepare-commit-msg", .root_source_file = b.path("src/main.zig"), .target = target, .optimize = optimize, .strip = true });
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
