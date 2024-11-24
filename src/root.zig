@@ -28,26 +28,69 @@ pub fn getCurrentGitBranch(allocator: std.mem.Allocator) !?[]const u8 {
 /// Updates commit message file
 /// Caller is responsible for freeing the returned memory
 pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, branch_name: []const u8) !void {
+    // Read the original commit message
     const file_contents = try std.fs.cwd().readFileAlloc(allocator, file_path, 1024 * 1024);
     defer allocator.free(file_contents);
+    
+    const trimmed_file_contents = std.mem.trim(u8, file_contents, " \t\n\r");
 
-    const new_message = try std.fmt.allocPrint(allocator, "{s}: {s}", .{ branch_name, file_contents });
-    defer allocator.free(new_message);
+    var lines = std.mem.split(u8, trimmed_file_contents, "\n");
 
-    try std.fs.cwd().writeFile(.{
-        .sub_path = file_path,
-        .data = new_message,
-    });
+    // Check if the message is multiline
+    const line_count = std.mem.count(u8, trimmed_file_contents, "\n");
+    if (line_count > 0) {
+        // Prepare the new message for multiline
+        var output = std.ArrayList(u8).init(allocator);
+        defer output.deinit();
+
+        var buffer: [1024]u8 = undefined;
+
+        // Add the branch name as the first line
+        try output.writer().writeAll(branch_name);
+        try output.writer().writeAll(":");
+
+        // Prepend each original line with `- `
+        while (lines.next()) |line| {
+            const formatted = try std.fmt.bufPrint(&buffer, "\n- {s}", .{line});
+            try output.writer().writeAll(formatted);
+        }
+
+        const new_message = try output.toOwnedSlice();
+        defer allocator.free(new_message);
+
+        // Write the new message to the file
+        try std.fs.cwd().writeFile(.{
+            .sub_path = file_path,
+            .data = new_message,
+        });
+    } else {
+        // Single-line message, format as `branch_name: original_message`
+        const new_message = try std.fmt.allocPrint(allocator, "{s}: {s}", .{ branch_name, trimmed_file_contents });
+        defer allocator.free(new_message);
+
+        try std.fs.cwd().writeFile(.{
+            .sub_path = file_path,
+            .data = new_message,
+        });
+    }
 }
 
-test "updateCommitMessage updates the commit message with the branch name" {
+test "updateCommitMessage updates the commit message with the branch name multiline" {
     const allocator = testing.allocator;
 
     const test_dir_rel_path = "test_update_commit_message";
     const commit_msg_file_name = "COMMIT_MSG";
     const commit_msg_file_path = test_dir_rel_path ++ "/" ++ commit_msg_file_name;
 
-    const initial_msg = "Initial commit\n";
+    const initial_msg =
+        \\Initial commit
+        \\Muti-line commit
+    ;
+    const trimmed_initial_msg =
+        \\- Initial commit
+        \\- Muti-line commit
+    ;
+
     const feature_branch = "feature-branch";
 
     try std.fs.cwd().makeDir(test_dir_rel_path);
@@ -71,5 +114,41 @@ test "updateCommitMessage updates the commit message with the branch name" {
     const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, 1024 * 1024);
     defer allocator.free(updated_msg);
 
-    try testing.expectEqualStrings(feature_branch ++ ": " ++ initial_msg, updated_msg);
+    try testing.expectEqualStrings(feature_branch ++ ":\n" ++ trimmed_initial_msg, updated_msg);
+}
+
+test "updateCommitMessage updates the commit message with the branch name" {
+    const allocator = testing.allocator;
+
+    const test_dir_rel_path = "test_update_commit_message";
+    const commit_msg_file_name = "COMMIT_MSG";
+    const commit_msg_file_path = test_dir_rel_path ++ "/" ++ commit_msg_file_name;
+
+    const initial_msg = "Initial commit\n";
+    const trimmed_initial_msg = "Initial commit";
+
+    const feature_branch = "feature-branch";
+
+    try std.fs.cwd().makeDir(test_dir_rel_path);
+    var test_dir = try std.fs.cwd().openDir(
+        test_dir_rel_path,
+        .{},
+    );
+    defer {
+        test_dir.close();
+        std.fs.cwd().deleteTree(test_dir_rel_path) catch unreachable;
+    }
+
+    const commit_msg_file = try test_dir.createFile(commit_msg_file_name, .{});
+    defer commit_msg_file.close();
+
+    const len = try commit_msg_file.write(initial_msg);
+    try testing.expectEqual(len, initial_msg.len);
+
+    try updateCommitMessage(allocator, commit_msg_file_path, feature_branch);
+
+    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, 1024 * 1024);
+    defer allocator.free(updated_msg);
+
+    try testing.expectEqualStrings(feature_branch ++ ": " ++ trimmed_initial_msg, updated_msg);
 }
