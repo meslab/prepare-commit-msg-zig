@@ -51,7 +51,7 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
         try message.writer().writeAll(formatted_branch_name);
 
         // Prepend each original line with `- `
-        var lines = std.mem.split(u8, trimmed_file_content, "\n");
+        var lines = std.mem.splitScalar(u8, trimmed_file_content, '\n');
         while (lines.next()) |line| {
             const formatted = try std.fmt.bufPrint(&buffer, "\n- {s}", .{line});
             try message.writer().writeAll(formatted);
