@@ -31,10 +31,13 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
     // Read the original commit message
     const file_contents = try std.fs.cwd().readFileAlloc(allocator, file_path, 1024 * 1024);
     defer allocator.free(file_contents);
-    
-    const trimmed_file_contents = std.mem.trim(u8, file_contents, " \t\n\r");
+
+    const trimmed_file_contents = std.mem.trim(u8, file_contents, " \t\n\r-");
 
     var lines = std.mem.split(u8, trimmed_file_contents, "\n");
+
+    var branch_name_buffer: [256]u8 = undefined;
+    const formatted_branch_name = try std.fmt.bufPrint(&branch_name_buffer, "{s}:", .{branch_name});
 
     // Check if the message is multiline
     const line_count = std.mem.count(u8, trimmed_file_contents, "\n");
@@ -46,8 +49,7 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
         var buffer: [1024]u8 = undefined;
 
         // Add the branch name as the first line
-        try output.writer().writeAll(branch_name);
-        try output.writer().writeAll(":");
+        try output.writer().writeAll(formatted_branch_name);
 
         // Prepend each original line with `- `
         while (lines.next()) |line| {
@@ -55,17 +57,14 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
             try output.writer().writeAll(formatted);
         }
 
-        const new_message = try output.toOwnedSlice();
-        defer allocator.free(new_message);
-
         // Write the new message to the file
         try std.fs.cwd().writeFile(.{
             .sub_path = file_path,
-            .data = new_message,
+            .data = output.items,
         });
     } else {
         // Single-line message, format as `branch_name: original_message`
-        const new_message = try std.fmt.allocPrint(allocator, "{s}: {s}", .{ branch_name, trimmed_file_contents });
+        const new_message = try std.fmt.allocPrint(allocator, "{s} {s}", .{ formatted_branch_name, trimmed_file_contents });
         defer allocator.free(new_message);
 
         try std.fs.cwd().writeFile(.{
