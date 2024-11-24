@@ -77,6 +77,47 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
     }
 }
 
+test "updateCommitMessage updates the commit message with the branch name multiline with comments" {
+    const allocator = testing.allocator;
+
+    const test_dir_rel_path = "test_update_commit_message";
+    const commit_msg_file_name = "COMMIT_MSG";
+    const commit_msg_file_path = test_dir_rel_path ++ "/" ++ commit_msg_file_name;
+
+    const initial_msg =
+        \\Initial commit
+        \\# Muti-line commit
+    ;
+    const trimmed_initial_msg =
+        \\- Initial commit
+     ;
+
+    const feature_branch = "feature-branch";
+
+    try std.fs.cwd().makeDir(test_dir_rel_path);
+    var test_dir = try std.fs.cwd().openDir(
+        test_dir_rel_path,
+        .{},
+    );
+    defer {
+        test_dir.close();
+        std.fs.cwd().deleteTree(test_dir_rel_path) catch unreachable;
+    }
+
+    const commit_msg_file = try test_dir.createFile(commit_msg_file_name, .{});
+    defer commit_msg_file.close();
+
+    const len = try commit_msg_file.write(initial_msg);
+    try testing.expectEqual(len, initial_msg.len);
+
+    try updateCommitMessage(allocator, commit_msg_file_path, feature_branch);
+
+    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, 1024 * 1024);
+    defer allocator.free(updated_msg);
+
+    try testing.expectEqualStrings(feature_branch ++ ":\n" ++ trimmed_initial_msg, updated_msg);
+}
+
 test "updateCommitMessage updates the commit message with the branch name multiline" {
     const allocator = testing.allocator;
 
