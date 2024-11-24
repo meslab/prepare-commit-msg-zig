@@ -9,3 +9,5 @@ git clone https://github.com/meslab/prepare-commit-msg-zig.git
 cd prepare-commit-msg-zig
 make install
 ```
+
+## How it works
