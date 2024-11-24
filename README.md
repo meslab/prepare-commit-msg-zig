@@ -1,7 +1,7 @@
 # git prepare-commit-msg hook
 
-A simple commit message hook to prepend a commit message with a current branch.  
-Exceptions are `main` and `master` branches for which the commit message does not change.
+A simple commit message hook that prepends the current branch name to the commit message.  
+Exceptions are the `main` and `master` branches, where the commit message remains unchanged.
 
 ## Installation
 ```
