@@ -34,14 +34,14 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
 
     const trimmed_file_contents = std.mem.trim(u8, file_contents, " \t\n\r-");
 
-    var lines = std.mem.split(u8, trimmed_file_contents, "\n");
-
     var branch_name_buffer: [256]u8 = undefined;
     const formatted_branch_name = try std.fmt.bufPrint(&branch_name_buffer, "{s}:", .{branch_name});
 
     // Check if the message is multiline
     const line_count = std.mem.count(u8, trimmed_file_contents, "\n");
+
     if (line_count > 0) {
+        var lines = std.mem.split(u8, trimmed_file_contents, "\n");
         // Prepare the new message for multiline
         var output = std.ArrayList(u8).init(allocator);
         defer output.deinit();
