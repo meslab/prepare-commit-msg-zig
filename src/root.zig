@@ -87,8 +87,6 @@ test "updateCommitMessage updates the commit message with the branch name multil
     const initial_msg =
         \\Initial commit
         \\# Muti-line commit
-        \\# Muti-line commit
-        \\# Muti-line commit
     ;
     const trimmed_initial_msg =
         \\- Initial commit
