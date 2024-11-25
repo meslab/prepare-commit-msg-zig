@@ -53,7 +53,7 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
         // Prepend each original line with `- `
         var lines = std.mem.splitScalar(u8, trimmed_file_content, '\n');
         while (lines.next()) |line| {
-            if (line.len == 0 or (line.len > 0 and line[0] == '#')) {
+            if (line.len == 0 or line[0] == '#') {
                 continue;
             }
             const formatted = try std.fmt.bufPrint(&buffer, "\n- {s}", .{line});
