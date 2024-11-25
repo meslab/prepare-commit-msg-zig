@@ -41,13 +41,14 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
 
     if (line_count > 0) {
         // Prepare the new message for multiline
-        var message = std.ArrayList(u8).init(allocator);
-        defer message.deinit();
+        var message = try std.ArrayListUnmanaged(u8).initCapacity(allocator, line_count);
+        defer message.deinit(allocator);
 
         var buffer: [256]u8 = undefined;
 
         // Add the branch name as the first line
-        try message.writer().writeAll(formatted_branch_name);
+        const writer = message.writer(allocator);
+        try writer.writeAll(formatted_branch_name);
 
         // Prepend each original line with `- `
         var lines = std.mem.splitScalar(u8, trimmed_file_content, '\n');
@@ -56,7 +57,7 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
                 continue;
             }
             const formatted = try std.fmt.bufPrint(&buffer, "\n- {s}", .{line});
-            try message.writer().writeAll(formatted);
+            try writer.writeAll(formatted);
         }
 
         // Write the new message to the file
