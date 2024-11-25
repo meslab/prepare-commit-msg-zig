@@ -22,7 +22,6 @@ pub fn getCurrentGitBranch(allocator: std.mem.Allocator) !?[]const u8 {
             return branch_name;
         }
     }
-
     return null;
 }
 
