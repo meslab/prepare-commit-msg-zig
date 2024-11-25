@@ -18,7 +18,7 @@ pub fn getCurrentGitBranch(allocator: std.mem.Allocator) !?[]const u8 {
 
         if (std.mem.lastIndexOf(u8, content, "/")) |last_slash_index| {
             const branch_name = std.mem.trim(u8, content[last_slash_index + 1 ..], " \n\r");
-            return branch_name;
+            return try allocator.dupe(u8, branch_name);
         }
     }
     return null;
