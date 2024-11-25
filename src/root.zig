@@ -37,11 +37,11 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
     const formatted_branch_name = try std.fmt.bufPrint(&branch_name_buffer, "{s}:", .{branch_name});
 
     // Check if the message is multiline
-    const line_count = std.mem.count(u8, trimmed_file_content, "\n");
+    const line_count = std.mem.count(u8, trimmed_file_content, "\n") + 1;
 
-    if (line_count > 0) {
+    if (line_count > 1) {
         // Prepare the new message for multiline
-        var message = try std.ArrayListUnmanaged(u8).initCapacity(allocator, line_count + 1);
+        var message = try std.ArrayListUnmanaged(u8).initCapacity(allocator, line_count);
         defer message.deinit(allocator);
 
         var buffer: [256]u8 = undefined;
