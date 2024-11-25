@@ -41,7 +41,7 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
 
     if (line_count > 1) {
         // Prepare the new message for multiline
-        var message = try std.ArrayListUnmanaged(u8).initCapacity(allocator, line_count);
+        var message = try std.ArrayListUnmanaged(u8).initCapacity(allocator, line_count + 1);
         defer message.deinit(allocator);
 
         var buffer: [256]u8 = undefined;
