@@ -27,7 +27,7 @@ pub fn main() !void {
 
     const commit_msg_file_path = args[1];
 
-    const branch_name = (try pcm.getCurrentGitBranch(allocator, pcm.CurrentRepoOptions.init())) orelse {
+    const branch_name = (try pcm.getCurrentGitBranch(allocator, .{})) orelse {
         std.debug.print("Cannot find branch name.\n", .{});
         return;
     };
