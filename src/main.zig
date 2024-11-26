@@ -17,7 +17,6 @@ pub fn main() !void {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    // Get command line arguments
     const args = try process.argsAlloc(allocator);
     defer process.argsFree(allocator, args);
 
@@ -28,13 +27,11 @@ pub fn main() !void {
 
     const commit_msg_file_path = args[1];
 
-    // Get branch name
     const branch_name = (try pcm.getCurrentGitBranch(allocator, pcm.CurrentRepoOptions.init())) orelse {
         std.debug.print("Cannot find branch name.\n", .{});
         return;
     };
 
-    // Check if on default branch
     if (mem.eql(u8, branch_name, "") or
         for (BRANCH_NAMES) |default_branch|
     {
@@ -44,7 +41,6 @@ pub fn main() !void {
         return;
     }
 
-    // Update commit message
     try pcm.updateCommitMessage(allocator, commit_msg_file_path, branch_name);
     std.debug.print("Commit message updated with branch name {s}.\n", .{branch_name});
 }
