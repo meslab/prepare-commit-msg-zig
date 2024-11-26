@@ -1,10 +1,17 @@
 const std = @import("std");
 const testing = std.testing;
 
+pub const CurrentRepoOptions = struct {
+    head_file_path: []const u8 = ".git/HEAD",
+    pub fn init() CurrentRepoOptions {
+        return CurrentRepoOptions{};
+    }
+};
+
 /// Retrieves the current Git branch name from the current directory
 /// Caller is responsible for freeing the returned memory
-pub fn getCurrentGitBranch(allocator: std.mem.Allocator) !?[]const u8 {
-    const head_path = try std.fs.cwd().realpathAlloc(allocator, ".git/HEAD");
+pub fn getCurrentGitBranch(allocator: std.mem.Allocator, options: CurrentRepoOptions) !?[]const u8 {
+    const head_path = try std.fs.cwd().realpathAlloc(allocator, options.head_file_path);
     defer allocator.free(head_path);
 
     const head_file = try std.fs.openFileAbsolute(head_path, .{});
@@ -196,4 +203,33 @@ test "updateCommitMessage updates the commit message with the branch name" {
     defer allocator.free(updated_msg);
 
     try testing.expectEqualStrings(feature_branch ++ ": " ++ trimmed_initial_msg, updated_msg);
+}
+
+test "getCurrentGitBranch " {
+    const allocator = testing.allocator;
+
+    const test_dir_rel_path = "test_update_commit_message";
+    const file_path = test_dir_rel_path ++ "/HEAD";
+
+    const feature_branch = "";
+
+    try std.fs.cwd().makeDir(test_dir_rel_path);
+    var test_dir = try std.fs.cwd().openDir(
+        test_dir_rel_path,
+        .{},
+    );
+    defer {
+        test_dir.close();
+        std.fs.cwd().deleteTree(test_dir_rel_path) catch unreachable;
+    }
+
+    try std.fs.cwd().writeFile(.{
+        .sub_path = file_path,
+        .data = "ref: ref/heads/" ++ feature_branch,
+    });
+
+    const current_branch = (try getCurrentGitBranch(allocator, .{ .head_file_path = file_path })) orelse {
+        return;
+    };
+    try testing.expectEqualStrings("", current_branch);
 }
