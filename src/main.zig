@@ -42,5 +42,5 @@ pub fn main() !void {
     }
 
     try pcm.updateCommitMessage(allocator, commit_msg_file_path, branch_name);
-    std.debug.print("Commit message updated with branch name {s}.\n", .{branch_name});
+    std.debug.print("Commit message updated with branch name `{s}`.\n", .{branch_name});
 }
