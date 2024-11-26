@@ -9,6 +9,7 @@ const BRANCH_NAMES = [_][]const u8{ "main", "master" };
 /// Main entry point of the application.
 /// This function reads a commit message file and prepends the current Git branch name
 /// to the message, unless the branch is a default branch or its name cannot be determined.
+/// On multi-line commits empty lines are removed and each line is bulleted
 ///
 /// # Errors
 /// - Returns an error if the branch name cannot be fetched or the commit message cannot be updated.
