@@ -1,7 +1,7 @@
 const std = @import("std");
-const process = std.process;
 const fs = std.fs;
 const mem = std.mem;
+const process = std.process;
 const pcm = @import("root.zig");
 
 const BRANCH_NAMES = [_][]const u8{ "main", "master" };
