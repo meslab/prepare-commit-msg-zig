@@ -87,7 +87,7 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
 test "updateCommitMessage updates the commit message with the branch name multiline with comments" {
     const allocator = testing.allocator;
 
-    const test_dir_rel_path = "test_update_commit_message";
+    const test_dir_rel_path = "test_update_commit_message_1";
     const commit_msg_file_name = "COMMIT_MSG";
     const commit_msg_file_path = test_dir_rel_path ++ "/" ++ commit_msg_file_name;
 
@@ -128,7 +128,7 @@ test "updateCommitMessage updates the commit message with the branch name multil
 test "updateCommitMessage updates the commit message with the branch name multiline" {
     const allocator = testing.allocator;
 
-    const test_dir_rel_path = "test_update_commit_message";
+    const test_dir_rel_path = "test_update_commit_message_2";
     const commit_msg_file_name = "COMMIT_MSG";
     const commit_msg_file_path = test_dir_rel_path ++ "/" ++ commit_msg_file_name;
 
@@ -170,7 +170,7 @@ test "updateCommitMessage updates the commit message with the branch name multil
 test "updateCommitMessage updates the commit message with the branch name" {
     const allocator = testing.allocator;
 
-    const test_dir_rel_path = "test_update_commit_message";
+    const test_dir_rel_path = "test_update_commit_message_3";
     const commit_msg_file_name = "COMMIT_MSG";
     const commit_msg_file_path = test_dir_rel_path ++ "/" ++ commit_msg_file_name;
 
@@ -205,10 +205,10 @@ test "updateCommitMessage updates the commit message with the branch name" {
     try testing.expectEqualStrings(feature_branch ++ ": " ++ trimmed_initial_msg, updated_msg);
 }
 
-test "getCurrentGitBranch " {
+test "getCurrentGitBranch null" {
     const allocator = testing.allocator;
 
-    const test_dir_rel_path = "test_update_commit_message";
+    const test_dir_rel_path = "test_update_commit_message_gcb";
     const file_path = test_dir_rel_path ++ "/HEAD";
 
     const feature_branch = "";
@@ -225,11 +225,44 @@ test "getCurrentGitBranch " {
 
     try std.fs.cwd().writeFile(.{
         .sub_path = file_path,
-        .data = "ref: ref/heads/" ++ feature_branch,
+        .data = "ref: refs/heads/" ++ feature_branch,
     });
 
-    const current_branch = (try getCurrentGitBranch(allocator, .{ .head_file_path = file_path })) orelse {
+    const options = CurrentRepoOptions{ .head_file_path = file_path };
+    const current_branch = (try getCurrentGitBranch(allocator, options)) orelse {
         return;
     };
-    try testing.expectEqualStrings("", current_branch);
+    defer allocator.free(current_branch);
+}
+
+test "getCurrentGitBranch test" {
+    const allocator = testing.allocator;
+
+    const test_dir_rel_path = "test_update_commit_message_test";
+    const file_path = test_dir_rel_path ++ "/HEAD";
+
+    const feature_branch = "test";
+
+    try std.fs.cwd().makeDir(test_dir_rel_path);
+    var test_dir = try std.fs.cwd().openDir(
+        test_dir_rel_path,
+        .{},
+    );
+    defer {
+        test_dir.close();
+        std.fs.cwd().deleteTree(test_dir_rel_path) catch unreachable;
+    }
+
+    try std.fs.cwd().writeFile(.{
+        .sub_path = file_path,
+        .data = "ref: refs/heads/" ++ feature_branch,
+    });
+
+    const options = CurrentRepoOptions{ .head_file_path = file_path };
+    const current_branch = (try getCurrentGitBranch(allocator, options)) orelse {
+        return;
+    };
+    defer allocator.free(current_branch);
+
+    try testing.expectEqualStrings("test", current_branch);
 }
