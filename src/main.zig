@@ -4,8 +4,6 @@ const mem = std.mem;
 const process = std.process;
 const pcm = @import("root.zig");
 
-const BRANCH_NAMES = [_][]const u8{ "main", "master" };
-
 /// Main entry point of the application.
 /// This function reads a commit message file and prepends the current Git branch name
 /// to the message, unless the branch is a default branch or its name cannot be determined.
@@ -33,15 +31,19 @@ pub fn main() !void {
         return;
     };
 
-    if (mem.eql(u8, branch_name, "") or
-        for (BRANCH_NAMES) |default_branch|
-    {
-        if (mem.eql(u8, branch_name, default_branch)) break true;
-    } else false) {
+    if (mem.eql(u8, branch_name, "") or isDefaultBranch(branch_name)) {
         std.debug.print("On default branch. Skipping commit message update.\n", .{});
         return;
     }
 
     try pcm.updateCommitMessage(allocator, commit_msg_file_path, branch_name);
     std.debug.print("Commit message updated with branch name `{s}`.\n", .{branch_name});
+}
+
+fn isDefaultBranch(branch_name: []const u8) bool {
+    const default_branch_names = comptime [_][]const u8{ "main", "master" };
+    for (default_branch_names) |default_branch| {
+        if (mem.eql(u8, branch_name, default_branch)) return true;
+    }
+    return false;
 }
