@@ -4,7 +4,7 @@ CORE_GIT_HOOKSPATH := $(if $(CORE_GIT_HOOKSPATH),$(CORE_GIT_HOOKSPATH),~/.git_ho
 install:
 	mkdir -p ${CORE_GIT_HOOKSPATH}
 	git config set --global core.hookspath $(CORE_GIT_HOOKSPATH)
-	zig build --release=safe --prefix-exe-dir ${CORE_GIT_HOOKSPATH}/
+	zig build --release=safe -Doptimize=ReleaseFast --prefix-exe-dir ${CORE_GIT_HOOKSPATH}/
 
 uninstall:
 	@rm -rf ${CORE_GIT_HOOKSPATH}/prepare-commit-msg
