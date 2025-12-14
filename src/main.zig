@@ -2,7 +2,8 @@ const std = @import("std");
 const fs = std.fs;
 const mem = std.mem;
 const process = std.process;
-const pcm = @import("root.zig");
+const pcm = @import("pcm.zig");
+const expect = std.testing.expect;
 
 /// Main entry point of the application.
 /// This function reads a commit message file and prepends the current Git branch name
