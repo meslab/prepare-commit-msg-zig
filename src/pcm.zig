@@ -9,8 +9,9 @@ pub const CurrentRepoOptions = struct {
     }
 };
 
-const head_file_buffer_size = 256 + 16;
-const commit_message_max_size = 1024 * 1024;
+const branch_name_max_length = 256;
+const head_file_buffer_size = branch_name_max_length + 16;
+const commit_message_max_size = 1024 * 1024; // 1M
 
 /// Retrieves the current Git branch name from the current directory
 /// Caller is responsible for freeing the returned memory
@@ -46,7 +47,7 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
 
     const trimmed_file_content = std.mem.trim(u8, file_content, " \t\n\r-");
 
-    var branch_name_buffer: [head_file_buffer_size]u8 = undefined;
+    var branch_name_buffer: [branch_name_max_length]u8 = undefined;
     const formatted_branch_name = try std.fmt.bufPrint(&branch_name_buffer, "{s}:", .{branch_name});
 
     // Check if the message is multiline
