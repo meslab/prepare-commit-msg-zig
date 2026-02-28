@@ -17,8 +17,10 @@ pub fn getCurrentGitBranch(allocator: std.mem.Allocator, options: CurrentRepoOpt
     const head_file = try std.fs.openFileAbsolute(head_path, .{});
     defer head_file.close();
 
+    var file_buffer: [1024]u8 = undefined;
     var buffer: [1024]u8 = undefined;
-    const bytes_read = try head_file.readAll(&buffer);
+    var reader = head_file.reader(&file_buffer);
+    const bytes_read = try reader.interface.readSliceShort(&buffer);
 
     if (bytes_read > 16 and std.mem.startsWith(u8, buffer[0..bytes_read], "ref: refs/heads/")) {
         const content = buffer[0..bytes_read];
