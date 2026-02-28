@@ -9,6 +9,9 @@ pub const CurrentRepoOptions = struct {
     }
 };
 
+const head_file_buffer_size = 256 + 16;
+const commit_message_max_size = 1024 * 1024;
+
 /// Retrieves the current Git branch name from the current directory
 /// Caller is responsible for freeing the returned memory
 pub fn getCurrentGitBranch(allocator: std.mem.Allocator, options: CurrentRepoOptions) !?[]const u8 {
@@ -18,8 +21,10 @@ pub fn getCurrentGitBranch(allocator: std.mem.Allocator, options: CurrentRepoOpt
     const head_file = try std.fs.openFileAbsolute(head_path, .{});
     defer head_file.close();
 
-    var buffer: [4096]u8 = undefined;
-    const bytes_read = try head_file.readAll(&buffer);
+    var file_buffer: [head_file_buffer_size]u8 = undefined;
+    var buffer: [head_file_buffer_size]u8 = undefined;
+    var reader = head_file.reader(&file_buffer);
+    const bytes_read = try reader.interface.readSliceShort(&buffer);
 
     if (bytes_read > 16 and std.mem.startsWith(u8, buffer[0..bytes_read], "ref: refs/heads/")) {
         const content = buffer[0..bytes_read];
@@ -36,12 +41,12 @@ pub fn getCurrentGitBranch(allocator: std.mem.Allocator, options: CurrentRepoOpt
 /// Caller is responsible for freeing the returned memory
 pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, branch_name: []const u8) !void {
     // Read the original commit message
-    const file_content = try std.fs.cwd().readFileAlloc(allocator, file_path, 1024 * 1024);
+    const file_content = try std.fs.cwd().readFileAlloc(allocator, file_path, commit_message_max_size);
     defer allocator.free(file_content);
 
     const trimmed_file_content = std.mem.trim(u8, file_content, " \t\n\r-");
 
-    var branch_name_buffer: [256]u8 = undefined;
+    var branch_name_buffer: [head_file_buffer_size]u8 = undefined;
     const formatted_branch_name = try std.fmt.bufPrint(&branch_name_buffer, "{s}:", .{branch_name});
 
     // Check if the message is multiline
@@ -52,7 +57,7 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
         var message = try std.ArrayListUnmanaged(u8).initCapacity(allocator, line_count + 1); // an extra line to add branch name 'header'
         defer message.deinit(allocator);
 
-        var buffer: [256]u8 = undefined;
+        var buffer: [commit_message_max_size]u8 = undefined;
 
         // Add the branch name as the first line
         const writer = message.writer(allocator);
@@ -170,7 +175,7 @@ test "updateCommitMessage updates the commit message with the branch name multil
 
     try updateCommitMessage(allocator, commit_msg_file_path, feature_branch);
 
-    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, 1024 * 1024);
+    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, commit_message_max_size);
     defer allocator.free(updated_msg);
 
     try testing.expectEqualStrings(feature_branch ++ ":\n" ++ trimmed_initial_msg, updated_msg);
@@ -208,7 +213,7 @@ test "updateCommitMessage updates the commit message with the branch name" {
 
     try updateCommitMessage(allocator, commit_msg_file_path, feature_branch);
 
-    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, 1024 * 1024);
+    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, commit_message_max_size);
     defer allocator.free(updated_msg);
 
     try testing.expectEqualStrings(feature_branch ++ ": " ++ trimmed_initial_msg, updated_msg);
