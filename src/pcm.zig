@@ -8,6 +8,8 @@ pub const CurrentRepoOptions = struct {
     }
 };
 
+const head_file_buffer_size = 1024;
+
 /// Retrieves the current Git branch name from the current directory
 /// Caller is responsible for freeing the returned memory
 pub fn getCurrentGitBranch(allocator: std.mem.Allocator, options: CurrentRepoOptions) !?[]const u8 {
@@ -17,8 +19,8 @@ pub fn getCurrentGitBranch(allocator: std.mem.Allocator, options: CurrentRepoOpt
     const head_file = try std.fs.openFileAbsolute(head_path, .{});
     defer head_file.close();
 
-    var file_buffer: [1024]u8 = undefined;
-    var buffer: [1024]u8 = undefined;
+    var file_buffer: [head_file_buffer_size]u8 = undefined;
+    var buffer: [head_file_buffer_size]u8 = undefined;
     var reader = head_file.reader(&file_buffer);
     const bytes_read = try reader.interface.readSliceShort(&buffer);
 
