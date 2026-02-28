@@ -1,4 +1,5 @@
 const std = @import("std");
+const mem = std.mem;
 const testing = std.testing;
 
 pub const CurrentRepoOptions = struct {
@@ -87,6 +88,14 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
             .data = message,
         });
     }
+}
+
+pub fn isDefaultBranch(branch_name: []const u8) bool {
+    const default_branch_names = comptime [_][]const u8{ "main", "master" };
+    for (default_branch_names) |default_branch| {
+        if (mem.eql(u8, branch_name, default_branch)) return true;
+    }
+    return false;
 }
 
 test "updateCommitMessage updates the commit message with the branch name multiline with comments" {
