@@ -133,7 +133,7 @@ test "updateCommitMessage updates the commit message with the branch name multil
 
     try updateCommitMessage(allocator, commit_msg_file_path, feature_branch);
 
-    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, 1024 * 1024);
+    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, commit_message_max_size);
     defer allocator.free(updated_msg);
 
     try testing.expectEqualStrings(feature_branch ++ ":\n" ++ trimmed_initial_msg, updated_msg);
