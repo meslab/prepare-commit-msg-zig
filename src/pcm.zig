@@ -1,4 +1,5 @@
 const std = @import("std");
+const mem = std.mem;
 const testing = std.testing;
 
 pub const CurrentRepoOptions = struct {
@@ -17,7 +18,7 @@ pub fn getCurrentGitBranch(allocator: std.mem.Allocator, options: CurrentRepoOpt
     const head_file = try std.fs.openFileAbsolute(head_path, .{});
     defer head_file.close();
 
-    var buffer: [1024]u8 = undefined;
+    var buffer: [4096]u8 = undefined;
     const bytes_read = try head_file.readAll(&buffer);
 
     if (bytes_read > 16 and std.mem.startsWith(u8, buffer[0..bytes_read], "ref: refs/heads/")) {
@@ -82,6 +83,14 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
             .data = message,
         });
     }
+}
+
+pub fn isDefaultBranch(branch_name: []const u8) bool {
+    const default_branch_names = comptime [_][]const u8{ "main", "master" };
+    for (default_branch_names) |default_branch| {
+        if (mem.eql(u8, branch_name, default_branch)) return true;
+    }
+    return false;
 }
 
 test "updateCommitMessage updates the commit message with the branch name multiline with comments" {
