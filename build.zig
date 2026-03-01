@@ -10,18 +10,14 @@ pub fn build(b: *std.Build) void {
         .strip = true,
     });
 
-    var git_hooks_path: u8 = undefined;
-    var hooks_path: []const u8 = undefined;
-    const git_res = std.mem.trim(u8, b.runAllowFail(&[_][]const u8{ "git", "config", "get", "--global", "core.hookspath" }, &git_hooks_path, .Ignore) catch "", " \n\r");
-    if (git_res.len > 0) {
-        hooks_path = git_res;
-        // std.debug.print("Inside if: {s}\n", .{hooks_path});
+    var out_code: u8 = undefined;
+    var hooks_path = std.mem.trim(u8, b.runAllowFail(&[_][]const u8{ "git", "config", "get", "--global", "core.hookspath" }, &out_code, .Ignore) catch "", " \n\r");
+    if (hooks_path.len > 0) {
         createHooksDirectory(hooks_path);
     } else {
         hooks_path = buildHooksPath(b.allocator);
-        // std.debug.print("Inside else: {s}\n", .{hooks_path});
         createHooksDirectory(hooks_path);
-        _ = b.runAllowFail(&[_][]const u8{ "git", "config", "set", "--global", "core.hookspath", hooks_path }, &git_hooks_path, .Ignore) catch "";
+        _ = b.runAllowFail(&[_][]const u8{ "git", "config", "set", "--global", "core.hookspath", hooks_path }, &out_code, .Ignore) catch "";
     }
 
     const exe = b.addExecutable(.{
