@@ -32,18 +32,19 @@ pub fn build(b: *std.Build) void {
     });
 
     if (optimize == .ReleaseFast) {
-        b.install_prefix = hooks_path;
+        b.install_path = hooks_path;
+        const install_exe = b.addInstallArtifact(exe, .{
+            .dest_dir = .{ .override = .prefix },
+        });
 
-        const cmd = b.addSystemCommand(&.{"cp"});
-        cmd.addArtifactArg(exe);
-        cmd.addArg(hooks_path);
-        b.getInstallStep().dependOn(&cmd.step);
+        b.getInstallStep().dependOn(&install_exe.step);
 
         const rm = b.addSystemCommand(&.{"rm"});
         rm.addArg(b.pathJoin(&.{ hooks_path, exe.name }));
         b.getUninstallStep().dependOn(&rm.step);
+    } else {
+        b.installArtifact(exe);
     }
-    b.installArtifact(exe);
 
     const run_step = b.step("run", "Run the app");
 
