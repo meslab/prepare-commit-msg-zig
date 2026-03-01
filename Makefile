@@ -1,5 +1,5 @@
 install:
-	zig build -Doptimize=ReleaseFast
+	zig build -Doptimize=ReleaseFast --summary all
 
 uninstall:
 	 zig build uninstall -Doptimize=ReleaseFast
