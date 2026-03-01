@@ -10,28 +10,38 @@ pub fn build(b: *std.Build) void {
         .strip = true,
     });
 
+    var git_hooks_path: u8 = undefined;
+    var hooks_path: []const u8 = undefined;
+    const git_res = std.mem.trim(u8, b.runAllowFail(&[_][]const u8{ "git", "config", "get", "--global", "core.hookspath" }, &git_hooks_path, .Ignore) catch "", " \n\r");
+    if (git_res.len > 0) {
+        hooks_path = git_res;
+        // std.debug.print("Inside if: {s}\n", .{hooks_path});
+        createHooksDirectory(hooks_path);
+    } else {
+        hooks_path = buildHooksPath(b.allocator);
+        // std.debug.print("Inside else: {s}\n", .{hooks_path});
+        createHooksDirectory(hooks_path);
+        _ = b.runAllowFail(&[_][]const u8{ "git", "config", "set", "--global", "core.hookspath", hooks_path }, &git_hooks_path, .Ignore) catch "";
+    }
+    // std.debug.print("After all: {s}\n", .{hooks_path});
+    if (optimize == .ReleaseFast) {
+        std.debug.print("In if ReleaseFast: {s}\n", .{hooks_path});
+        b.install_prefix = hooks_path;
+    }
+
     const exe = b.addExecutable(.{
         .name = "prepare-commit-msg",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
-            .target = target,
-            .optimize = optimize,
-            .strip = true,
-            .imports = &.{
-                .{ .name = "pcm", .module = mod },
-            },
-        }),
+        .root_module = b.createModule(.{ .root_source_file = b.path("src/main.zig"), .target = target, .optimize = optimize, .strip = true, .imports = &.{
+            .{ .name = "pcm", .module = mod },
+        } }),
     });
 
-    var hooks_path: u8 = undefined;
-    const git_res = b.runAllowFail(&[_][]const u8{ "git", "config", "get", "core.hookspath" }, &hooks_path, .Ignore) catch "";
-    const final_hooks_path = if (git_res.len > 0)
-        std.mem.trim(u8, git_res, " \n\r")
-    else
-        "~/.git_hooks";
-
-    std.debug.print("{s}\n", .{final_hooks_path});
-
+    if (optimize == .ReleaseFast) {
+        const cmd = b.addSystemCommand(&.{"cp"});
+        cmd.addArtifactArg(exe);
+        cmd.addArg(hooks_path);
+        b.getInstallStep().dependOn(&cmd.step);
+    }
     b.installArtifact(exe);
 
     const run_step = b.step("run", "Run the app");
@@ -60,4 +70,19 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
+}
+
+fn createHooksDirectory(hooks_path: []const u8) void {
+    std.fs.cwd().makeDir(hooks_path) catch |err| switch (err) {
+        error.PathAlreadyExists => return,
+        else => {
+            std.debug.print("Could not create directory: {}\n", .{err});
+        },
+    };
+}
+
+fn buildHooksPath(allocator: std.mem.Allocator) []const u8 {
+    const home = std.process.getEnvVarOwned(allocator, "HOME") catch unreachable;
+    const hooks_path = std.fs.path.join(allocator, &[_][]const u8{ home, ".git_hooks" }) catch unreachable;
+    return hooks_path;
 }
