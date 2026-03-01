@@ -23,11 +23,6 @@ pub fn build(b: *std.Build) void {
         createHooksDirectory(hooks_path);
         _ = b.runAllowFail(&[_][]const u8{ "git", "config", "set", "--global", "core.hookspath", hooks_path }, &git_hooks_path, .Ignore) catch "";
     }
-    // std.debug.print("After all: {s}\n", .{hooks_path});
-    if (optimize == .ReleaseFast) {
-        std.debug.print("In if ReleaseFast: {s}\n", .{hooks_path});
-        b.install_prefix = hooks_path;
-    }
 
     const exe = b.addExecutable(.{
         .name = "prepare-commit-msg",
@@ -37,10 +32,16 @@ pub fn build(b: *std.Build) void {
     });
 
     if (optimize == .ReleaseFast) {
+        b.install_prefix = hooks_path;
+
         const cmd = b.addSystemCommand(&.{"cp"});
         cmd.addArtifactArg(exe);
         cmd.addArg(hooks_path);
         b.getInstallStep().dependOn(&cmd.step);
+
+        const rm = b.addSystemCommand(&.{"rm"});
+        rm.addArg(b.pathJoin(&.{ hooks_path, exe.name }));
+        b.getUninstallStep().dependOn(&rm.step);
     }
     b.installArtifact(exe);
 
