@@ -1,8 +1,8 @@
 install:
 	zig build -Doptimize=ReleaseFast
 
-#uninstall:
-	 # zig build uninstall -Doptimize=ReleaseFast
+uninstall:
+	 zig build uninstall -Doptimize=ReleaseFast
 
 clean:
 	@rm -rf .zig-cache zig-out

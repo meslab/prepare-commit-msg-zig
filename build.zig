@@ -36,12 +36,7 @@ pub fn build(b: *std.Build) void {
         const install_exe = b.addInstallArtifact(exe, .{
             .dest_dir = .{ .override = .prefix },
         });
-
         b.getInstallStep().dependOn(&install_exe.step);
-
-        const rm = b.addSystemCommand(&.{"rm"});
-        rm.addArg(b.pathJoin(&.{ hooks_path, exe.name }));
-        b.getUninstallStep().dependOn(&rm.step);
     } else {
         b.installArtifact(exe);
     }
