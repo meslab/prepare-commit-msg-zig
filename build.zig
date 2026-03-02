@@ -11,20 +11,42 @@ pub fn build(b: *std.Build) void {
     });
 
     var out_code: u8 = undefined;
-    var hooks_path = std.mem.trim(u8, b.runAllowFail(&[_][]const u8{ "git", "config", "get", "--global", "core.hookspath" }, &out_code, .Ignore) catch "", " \n\r");
+    var hooks_path = std.mem.trim(u8, b.runAllowFail(&[_][]const u8{
+        "git",
+        "config",
+        "get",
+        "--global",
+        "core.hookspath",
+    }, &out_code, .Ignore) catch "", " \n\r");
     if (hooks_path.len > 0) {
         createHooksDirectory(hooks_path);
     } else {
         hooks_path = buildHooksPath(b.allocator);
         createHooksDirectory(hooks_path);
-        _ = b.runAllowFail(&[_][]const u8{ "git", "config", "set", "--global", "core.hookspath", hooks_path }, &out_code, .Ignore) catch "";
+        _ = b.runAllowFail(&[_][]const u8{
+            "git",
+            "config",
+            "set",
+            "--global",
+            "core.hookspath",
+            hooks_path,
+        }, &out_code, .Ignore) catch "";
     }
 
     const exe = b.addExecutable(.{
         .name = "prepare-commit-msg",
-        .root_module = b.createModule(.{ .root_source_file = b.path("src/main.zig"), .target = target, .optimize = optimize, .strip = true, .imports = &.{
-            .{ .name = "pcm", .module = mod },
-        } }),
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .strip = true,
+            .imports = &.{
+                .{
+                    .name = "pcm",
+                    .module = mod,
+                },
+            },
+        }),
     });
 
     if (optimize == .ReleaseFast) {
@@ -75,7 +97,14 @@ fn createHooksDirectory(hooks_path: []const u8) void {
 }
 
 fn buildHooksPath(allocator: std.mem.Allocator) []const u8 {
-    const home = std.process.getEnvVarOwned(allocator, "HOME") catch unreachable;
-    const hooks_path = std.fs.path.join(allocator, &[_][]const u8{ home, ".git_hooks" }) catch unreachable;
+    const home = std.process.getEnvVarOwned(allocator, "HOME") catch |err| {
+        std.debug.panic("Could not find home directory: {}\n", .{err});
+    };
+    const hooks_path = std.fs.path.join(allocator, &[_][]const u8{
+        home,
+        ".git_hooks",
+    }) catch |err| {
+        std.debug.panic("Could not build hooks path: {}\n", .{err});
+    };
     return hooks_path;
 }
