@@ -7,7 +7,6 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/pcm.zig"),
         .target = target,
         .optimize = optimize,
-        .strip = true,
     });
 
     var out_code: u8 = undefined;
@@ -39,7 +38,6 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
-            .strip = true,
             .imports = &.{
                 .{
                     .name = "pcm",
@@ -50,6 +48,8 @@ pub fn build(b: *std.Build) void {
     });
 
     if (optimize == .ReleaseFast) {
+        mod.strip = true;
+        exe.root_module.strip = true;
         b.install_path = hooks_path;
         const install_exe = b.addInstallArtifact(exe, .{
             .dest_dir = .{ .override = .prefix },
