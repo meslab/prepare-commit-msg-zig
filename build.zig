@@ -10,18 +10,20 @@ pub fn build(b: *std.Build) void {
     });
 
     var out_code: u8 = undefined;
-    var hooks_path = std.mem.trim(u8, b.runAllowFail(&[_][]const u8{
+    const configured_hooks_path = std.mem.trim(u8, b.runAllowFail(&[_][]const u8{
         "git",
         "config",
         "get",
         "--global",
         "core.hookspath",
-    }, &out_code, .Ignore) catch "", " \n\r");
-    if (hooks_path.len > 0) {
-        createHooksDirectory(hooks_path);
+    }, &out_code, .ignore) catch "", " \n\r");
+
+    var hooks_path: []const u8 = undefined;
+    if (configured_hooks_path.len > 0 and createHooksDirectory(b.graph.io, configured_hooks_path)) {
+        hooks_path = configured_hooks_path;
     } else {
-        hooks_path = buildHooksPath(b.allocator);
-        createHooksDirectory(hooks_path);
+        hooks_path = buildHooksPath(b);
+        _ = createHooksDirectory(b.graph.io, hooks_path);
         _ = b.runAllowFail(&[_][]const u8{
             "git",
             "config",
@@ -29,7 +31,7 @@ pub fn build(b: *std.Build) void {
             "--global",
             "core.hookspath",
             hooks_path,
-        }, &out_code, .Ignore) catch "";
+        }, &out_code, .ignore) catch "";
     }
 
     const exe = b.addExecutable(.{
@@ -86,25 +88,26 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
 
-    const clean_up = b.addRemoveDirTree(b.path("zig-out"));
+    const clean_up = b.addSystemCommand(&.{ "rm", "-rf", "zig-out" });
     const clean_step = b.step("clean", "Clean up");
     clean_step.dependOn(&clean_up.step);
 }
 
-fn createHooksDirectory(hooks_path: []const u8) void {
-    std.fs.cwd().makeDir(hooks_path) catch |err| switch (err) {
-        error.PathAlreadyExists => return,
+fn createHooksDirectory(io: std.Io, hooks_path: []const u8) bool {
+    std.Io.Dir.createDir(.cwd(), io, hooks_path, .default_dir) catch |err| switch (err) {
+        error.PathAlreadyExists => return true,
         else => {
-            std.debug.print("Could not create directory: {}\n", .{err});
+            std.debug.print("Could not create directory: {s}: {}\n", .{ hooks_path, err });
+            return false;
         },
     };
+    return true;
 }
 
-fn buildHooksPath(allocator: std.mem.Allocator) []const u8 {
-    const home = std.process.getEnvVarOwned(allocator, "HOME") catch |err| {
-        std.debug.panic("Could not find home directory: {}\n", .{err});
-    };
-    const hooks_path = std.fs.path.join(allocator, &[_][]const u8{
+fn buildHooksPath(b: *std.Build) []const u8 {
+    const home = b.graph.environ_map.get("HOME") orelse
+        std.debug.panic("Could not find home directory\n", .{});
+    const hooks_path = std.fs.path.join(b.allocator, &[_][]const u8{
         home,
         ".git_hooks",
     }) catch |err| {

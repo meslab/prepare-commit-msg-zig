@@ -15,21 +15,11 @@ const commit_message_max_size = 1024 * 1024; // 1M
 
 /// Retrieves the current Git branch name from the current directory
 /// Caller is responsible for freeing the returned memory
-pub fn getCurrentGitBranch(allocator: std.mem.Allocator, options: CurrentRepoOptions) !?[]const u8 {
-    const head_path = try std.fs.cwd().realpathAlloc(allocator, options.head_file_path);
-    defer allocator.free(head_path);
+pub fn getCurrentGitBranch(io: std.Io, allocator: std.mem.Allocator, options: CurrentRepoOptions) !?[]const u8 {
+    const content = try std.Io.Dir.readFileAlloc(.cwd(), io, options.head_file_path, allocator, .limited(head_file_buffer_size));
+    defer allocator.free(content);
 
-    const head_file = try std.fs.openFileAbsolute(head_path, .{});
-    defer head_file.close();
-
-    var file_buffer: [head_file_buffer_size]u8 = undefined;
-    var buffer: [head_file_buffer_size]u8 = undefined;
-    var reader = head_file.reader(&file_buffer);
-    const bytes_read = try reader.interface.readSliceShort(&buffer);
-
-    if (bytes_read > 16 and std.mem.startsWith(u8, buffer[0..bytes_read], "ref: refs/heads/")) {
-        const content = buffer[0..bytes_read];
-
+    if (content.len > 16 and std.mem.startsWith(u8, content, "ref: refs/heads/")) {
         if (std.mem.lastIndexOf(u8, content, "/")) |last_slash_index| {
             const branch_name = std.mem.trim(u8, content[last_slash_index + 1 ..], " \n\r");
             return try allocator.dupe(u8, branch_name);
@@ -40,9 +30,9 @@ pub fn getCurrentGitBranch(allocator: std.mem.Allocator, options: CurrentRepoOpt
 
 /// Updates commit message file
 /// Caller is responsible for freeing the returned memory
-pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, branch_name: []const u8) !void {
+pub fn updateCommitMessage(io: std.Io, allocator: std.mem.Allocator, file_path: []const u8, branch_name: []const u8) !void {
     // Read the original commit message
-    const file_content = try std.fs.cwd().readFileAlloc(allocator, file_path, commit_message_max_size);
+    const file_content = try std.Io.Dir.readFileAlloc(.cwd(), io, file_path, allocator, .limited(commit_message_max_size));
     defer allocator.free(file_content);
 
     const trimmed_file_content = std.mem.trim(u8, file_content, " \t\n\r-");
@@ -61,8 +51,7 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
         var buffer: [commit_message_max_size]u8 = undefined;
 
         // Add the branch name as the first line
-        const writer = message.writer(allocator);
-        try writer.writeAll(formatted_branch_name);
+        try message.appendSlice(allocator, formatted_branch_name);
 
         // Prepend each original line with `- `
         var lines = std.mem.splitScalar(u8, trimmed_file_content, '\n');
@@ -71,11 +60,11 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
                 continue;
             }
             const formatted = try std.fmt.bufPrint(&buffer, "\n- {s}", .{line});
-            try writer.writeAll(formatted);
+            try message.appendSlice(allocator, formatted);
         }
 
         // Write the new message to the file
-        try std.fs.cwd().writeFile(.{
+        try std.Io.Dir.writeFile(.cwd(), io, .{
             .sub_path = file_path,
             .data = message.items,
         });
@@ -84,7 +73,7 @@ pub fn updateCommitMessage(allocator: std.mem.Allocator, file_path: []const u8, 
         const message = try std.fmt.allocPrint(allocator, "{s} {s}", .{ formatted_branch_name, trimmed_file_content });
         defer allocator.free(message);
 
-        try std.fs.cwd().writeFile(.{
+        try std.Io.Dir.writeFile(.cwd(), io, .{
             .sub_path = file_path,
             .data = message,
         });
@@ -101,6 +90,7 @@ pub fn isDefaultBranch(branch_name: []const u8) bool {
 
 test "updateCommitMessage updates the commit message with the branch name multiline with comments" {
     const allocator = testing.allocator;
+    const io = testing.io;
 
     const test_dir_rel_path = "test_update_commit_message_1";
     const commit_msg_file_name = "COMMIT_MSG";
@@ -116,25 +106,26 @@ test "updateCommitMessage updates the commit message with the branch name multil
 
     const feature_branch = "feature-branch";
 
-    try std.fs.cwd().makeDir(test_dir_rel_path);
-    var test_dir = try std.fs.cwd().openDir(
+    try std.Io.Dir.createDir(.cwd(), io, test_dir_rel_path, .default_dir);
+    var test_dir = try std.Io.Dir.openDir(
+        .cwd(),
+        io,
         test_dir_rel_path,
         .{},
     );
     defer {
-        test_dir.close();
-        std.fs.cwd().deleteTree(test_dir_rel_path) catch unreachable;
+        test_dir.close(io);
+        std.Io.Dir.deleteTree(.cwd(), io, test_dir_rel_path) catch unreachable;
     }
 
-    const commit_msg_file = try test_dir.createFile(commit_msg_file_name, .{});
-    defer commit_msg_file.close();
+    const commit_msg_file = try std.Io.Dir.createFile(test_dir, io, commit_msg_file_name, .{});
+    defer commit_msg_file.close(io);
 
-    const len = try commit_msg_file.write(initial_msg);
-    try testing.expectEqual(len, initial_msg.len);
+    try commit_msg_file.writeStreamingAll(io, initial_msg);
 
-    try updateCommitMessage(allocator, commit_msg_file_path, feature_branch);
+    try updateCommitMessage(io, allocator, commit_msg_file_path, feature_branch);
 
-    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, commit_message_max_size);
+    const updated_msg = try std.Io.Dir.readFileAlloc(.cwd(), io, commit_msg_file_path, allocator, .limited(commit_message_max_size));
     defer allocator.free(updated_msg);
 
     try testing.expectEqualStrings(feature_branch ++ ":\n" ++ trimmed_initial_msg, updated_msg);
@@ -142,6 +133,7 @@ test "updateCommitMessage updates the commit message with the branch name multil
 
 test "updateCommitMessage updates the commit message with the branch name multiline" {
     const allocator = testing.allocator;
+    const io = testing.io;
 
     const test_dir_rel_path = "test_update_commit_message_2";
     const commit_msg_file_name = "COMMIT_MSG";
@@ -158,25 +150,26 @@ test "updateCommitMessage updates the commit message with the branch name multil
 
     const feature_branch = "feature-branch";
 
-    try std.fs.cwd().makeDir(test_dir_rel_path);
-    var test_dir = try std.fs.cwd().openDir(
+    try std.Io.Dir.createDir(.cwd(), io, test_dir_rel_path, .default_dir);
+    var test_dir = try std.Io.Dir.openDir(
+        .cwd(),
+        io,
         test_dir_rel_path,
         .{},
     );
     defer {
-        test_dir.close();
-        std.fs.cwd().deleteTree(test_dir_rel_path) catch unreachable;
+        test_dir.close(io);
+        std.Io.Dir.deleteTree(.cwd(), io, test_dir_rel_path) catch unreachable;
     }
 
-    const commit_msg_file = try test_dir.createFile(commit_msg_file_name, .{});
-    defer commit_msg_file.close();
+    const commit_msg_file = try std.Io.Dir.createFile(test_dir, io, commit_msg_file_name, .{});
+    defer commit_msg_file.close(io);
 
-    const len = try commit_msg_file.write(initial_msg);
-    try testing.expectEqual(len, initial_msg.len);
+    try commit_msg_file.writeStreamingAll(io, initial_msg);
 
-    try updateCommitMessage(allocator, commit_msg_file_path, feature_branch);
+    try updateCommitMessage(io, allocator, commit_msg_file_path, feature_branch);
 
-    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, commit_message_max_size);
+    const updated_msg = try std.Io.Dir.readFileAlloc(.cwd(), io, commit_msg_file_path, allocator, .limited(commit_message_max_size));
     defer allocator.free(updated_msg);
 
     try testing.expectEqualStrings(feature_branch ++ ":\n" ++ trimmed_initial_msg, updated_msg);
@@ -184,6 +177,7 @@ test "updateCommitMessage updates the commit message with the branch name multil
 
 test "updateCommitMessage updates the commit message with the branch name" {
     const allocator = testing.allocator;
+    const io = testing.io;
 
     const test_dir_rel_path = "test_update_commit_message_3";
     const commit_msg_file_name = "COMMIT_MSG";
@@ -196,25 +190,26 @@ test "updateCommitMessage updates the commit message with the branch name" {
 
     const feature_branch = "feature-branch";
 
-    try std.fs.cwd().makeDir(test_dir_rel_path);
-    var test_dir = try std.fs.cwd().openDir(
+    try std.Io.Dir.createDir(.cwd(), io, test_dir_rel_path, .default_dir);
+    var test_dir = try std.Io.Dir.openDir(
+        .cwd(),
+        io,
         test_dir_rel_path,
         .{},
     );
     defer {
-        test_dir.close();
-        std.fs.cwd().deleteTree(test_dir_rel_path) catch unreachable;
+        test_dir.close(io);
+        std.Io.Dir.deleteTree(.cwd(), io, test_dir_rel_path) catch unreachable;
     }
 
-    const commit_msg_file = try test_dir.createFile(commit_msg_file_name, .{});
-    defer commit_msg_file.close();
+    const commit_msg_file = try std.Io.Dir.createFile(test_dir, io, commit_msg_file_name, .{});
+    defer commit_msg_file.close(io);
 
-    const len = try commit_msg_file.write(initial_msg);
-    try testing.expectEqual(len, initial_msg.len);
+    try commit_msg_file.writeStreamingAll(io, initial_msg);
 
-    try updateCommitMessage(allocator, commit_msg_file_path, feature_branch);
+    try updateCommitMessage(io, allocator, commit_msg_file_path, feature_branch);
 
-    const updated_msg = try std.fs.cwd().readFileAlloc(allocator, commit_msg_file_path, commit_message_max_size);
+    const updated_msg = try std.Io.Dir.readFileAlloc(.cwd(), io, commit_msg_file_path, allocator, .limited(commit_message_max_size));
     defer allocator.free(updated_msg);
 
     try testing.expectEqualStrings(feature_branch ++ ": " ++ trimmed_initial_msg, updated_msg);
@@ -222,29 +217,32 @@ test "updateCommitMessage updates the commit message with the branch name" {
 
 test "getCurrentGitBranch null" {
     const allocator = testing.allocator;
+    const io = testing.io;
 
     const test_dir_rel_path = "test_update_commit_message_gcb";
     const file_path = test_dir_rel_path ++ "/HEAD";
 
     const feature_branch = "";
 
-    try std.fs.cwd().makeDir(test_dir_rel_path);
-    var test_dir = try std.fs.cwd().openDir(
+    try std.Io.Dir.createDir(.cwd(), io, test_dir_rel_path, .default_dir);
+    var test_dir = try std.Io.Dir.openDir(
+        .cwd(),
+        io,
         test_dir_rel_path,
         .{},
     );
     defer {
-        test_dir.close();
-        std.fs.cwd().deleteTree(test_dir_rel_path) catch unreachable;
+        test_dir.close(io);
+        std.Io.Dir.deleteTree(.cwd(), io, test_dir_rel_path) catch unreachable;
     }
 
-    try std.fs.cwd().writeFile(.{
+    try std.Io.Dir.writeFile(.cwd(), io, .{
         .sub_path = file_path,
         .data = "ref: refs/heads/" ++ feature_branch,
     });
 
     const options = CurrentRepoOptions{ .head_file_path = file_path };
-    const current_branch = (try getCurrentGitBranch(allocator, options)) orelse {
+    const current_branch = (try getCurrentGitBranch(io, allocator, options)) orelse {
         return;
     };
     defer allocator.free(current_branch);
@@ -252,29 +250,32 @@ test "getCurrentGitBranch null" {
 
 test "getCurrentGitBranch test" {
     const allocator = testing.allocator;
+    const io = testing.io;
 
     const test_dir_rel_path = "test_update_commit_message_test";
     const file_path = test_dir_rel_path ++ "/HEAD";
 
     const feature_branch = "test";
 
-    try std.fs.cwd().makeDir(test_dir_rel_path);
-    var test_dir = try std.fs.cwd().openDir(
+    try std.Io.Dir.createDir(.cwd(), io, test_dir_rel_path, .default_dir);
+    var test_dir = try std.Io.Dir.openDir(
+        .cwd(),
+        io,
         test_dir_rel_path,
         .{},
     );
     defer {
-        test_dir.close();
-        std.fs.cwd().deleteTree(test_dir_rel_path) catch unreachable;
+        test_dir.close(io);
+        std.Io.Dir.deleteTree(.cwd(), io, test_dir_rel_path) catch unreachable;
     }
 
-    try std.fs.cwd().writeFile(.{
+    try std.Io.Dir.writeFile(.cwd(), io, .{
         .sub_path = file_path,
         .data = "ref: refs/heads/" ++ feature_branch,
     });
 
     const options = CurrentRepoOptions{ .head_file_path = file_path };
-    const current_branch = (try getCurrentGitBranch(allocator, options)) orelse {
+    const current_branch = (try getCurrentGitBranch(io, allocator, options)) orelse {
         return;
     };
     defer allocator.free(current_branch);
